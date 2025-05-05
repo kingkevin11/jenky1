@@ -6,7 +6,7 @@ on:
       - main  # This triggers the workflow when you push to 'main'
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest  # GitHub Actions will run this job on an Ubuntu runner
 
     steps:
@@ -21,7 +21,7 @@ jobs:
       # Step 3: Build the Docker image
       - name: Build Docker Image
         run: |
-          docker build -t my-static-site .  # Dockerfile should be in the root directory
+          docker build -t my-static-site .  # Build the Docker image from the Dockerfile
 
       # Step 4: Save the Docker image to a tar file
       - name: Save Docker image as tar file
@@ -29,12 +29,16 @@ jobs:
           mkdir -p $GITHUB_WORKSPACE/docker-images  # Create a directory in GitHub workspace
           docker save my-static-site:latest -o $GITHUB_WORKSPACE/docker-images/my-static-site.tar  # Save Docker image
 
-      # Step 5: Verify the file exists before attempting to copy
-      - name: List files in docker-images folder
+      # Step 5: Verify that the .tar file exists
+      - name: Verify Docker Image File
         run: |
           ls -al $GITHUB_WORKSPACE/docker-images  # List files to confirm existence of .tar file
+          if [ ! -f $GITHUB_WORKSPACE/docker-images/my-static-site.tar ]; then
+            echo "Docker image tar file not found!"
+            exit 1
+          fi
 
-      # Step 6: Copy the Docker image tar file to the EC2 instance
+      # Step 6: Copy the Docker image tar file to the EC2 instance using SCP
       - name: Copy Docker image to EC2 instance
         uses: appleboy/scp-action@v0.1.5
         with:
@@ -46,25 +50,16 @@ jobs:
           target: "/home/ubuntu/docker-images/my-static-site.tar"  # Target path on EC2 instance
 
       # Step 7: SSH into the EC2 instance and deploy the Docker container
-      - name: SSH to EC2 and deploy
+      - name: SSH to EC2 and deploy Docker container
         uses: appleboy/ssh-action@v0.1.5
         with:
           host: ${{ secrets.EC2_HOST }}  # EC2 IP address
           username: ubuntu  # Ubuntu user for EC2 instance
           key: ${{ secrets.EC2_SSH_KEY }}  # SSH private key stored in GitHub Secrets
           script: |
-            # Navigate to the docker-images directory
-            cd /home/ubuntu/docker-images
-            
-            # Verify if the tar file exists
-            ls -al
-
-            # Load the Docker image
-            docker load -i my-static-site.tar  # Load the image
-            
-            # Stop any running container with this name, if it exists
-            docker stop my-static-site-container || true  
+            cd /home/ubuntu/docker-images  # Go to the directory containing the image
+            docker load -i my-static-site.tar  # Load the Docker image
+            docker stop my-static-site-container || true  # Stop any running container with this name
             docker rm my-static-site-container || true  # Remove any old container
-
-            # Run the new container
             docker run -d -p 80:80 --name my-static-site-container my-static-site:latest  # Run the new container
+
