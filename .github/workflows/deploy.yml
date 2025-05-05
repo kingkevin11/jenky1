@@ -3,39 +3,39 @@ name: Deploy Static Website to EC2 (Docker)
 on:
   push:
     branches:
-      - main  # This triggers the workflow when you push to 'main'
+      - main  # Triggers the workflow when code is pushed to the 'main' branch
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest  # GitHub Actions will run this job on an Ubuntu runner
+    runs-on: ubuntu-latest
 
     steps:
       # Step 1: Checkout the code from the repository
       - name: Checkout Code
         uses: actions/checkout@v2
 
-      # Step 2: Set up Docker Buildx (for building images)
+      # Step 2: Set up Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
 
       # Step 3: Build the Docker image
       - name: Build Docker Image
         run: |
-          docker build -t my-static-site .  # Build the Docker image from the Dockerfile
+          docker build -t my-static-site .  # Build the image using the Dockerfile in root
 
-      # Step 4: Verify Docker image contents (Check if files are present in the image)
+      # Step 4: Verify Docker image contents
       - name: Verify Docker image contents
         run: |
-          docker run --rm my-static-site ls /usr/share/nginx/html  # Verify if static files are in the correct location
+          docker run --rm my-static-site ls /usr/share/nginx/html
 
       # Step 5: Save the Docker image to a tar file
       - name: Save Docker image as tar file
         run: |
-          mkdir -p $GITHUB_WORKSPACE/docker-images  # Create a directory in GitHub workspace
-          docker save my-static-site:latest -o $GITHUB_WORKSPACE/docker-images/my-static-site.tar  # Save Docker image
-          ls -al $GITHUB_WORKSPACE/docker-images  # Verify that the tar file is saved
+          mkdir -p $GITHUB_WORKSPACE/docker-images
+          docker save my-static-site:latest -o $GITHUB_WORKSPACE/docker-images/my-static-site.tar
+          ls -al $GITHUB_WORKSPACE/docker-images
 
-      # Step 6: Verify that the .tar file exists
+      # Step 6: Verify that the tar file exists
       - name: Verify Docker Image Tar File
         run: |
           if [ ! -f $GITHUB_WORKSPACE/docker-images/my-static-site.tar ]; then
@@ -43,28 +43,31 @@ jobs:
             exit 1
           fi
 
-      # Step 7: Copy the Docker image tar file to the EC2 instance using SCP
+      # Step 7: Copy the Docker image tar file to the EC2 instance
       - name: Copy Docker image to EC2 instance
         uses: appleboy/scp-action@v0.1.5
         with:
-          host: ${{ secrets.EC2_HOST }}  # EC2 IP address from GitHub Secrets
-          username: ubuntu  # Ubuntu user for EC2 instance
-          key: ${{ secrets.EC2_SSH_KEY }}  # SSH private key stored in GitHub Secrets
-          port: 22  # Default SSH port
-          source: "$GITHUB_WORKSPACE/docker-images/my-static-site.tar"  # The image file to copy
-          target: "/home/ubuntu/docker-images/my-static-site.tar"  # Target path on EC2 instance
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          source: "$GITHUB_WORKSPACE/docker-images/my-static-site.tar"
+          target: "/home/ubuntu/docker-images/my-static-site.tar"
+          timeout: 30s
+          command_timeout: 10m
+          debug: true
 
-      # Step 8: SSH into the EC2 instance and deploy the Docker container
+      # Step 8: SSH into EC2 and deploy the Docker container
       - name: SSH to EC2 and deploy Docker container
         uses: appleboy/ssh-action@v0.1.5
         with:
-          host: ${{ secrets.EC2_HOST }}  # EC2 IP address
-          username: ubuntu  # Ubuntu user for EC2 instance
-          key: ${{ secrets.EC2_SSH_KEY }}  # SSH private key stored in GitHub Secrets
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd /home/ubuntu/docker-images  # Go to the directory containing the image
-            docker load -i my-static-site.tar  # Load the Docker image
-            docker stop my-static-site-container || true  # Stop any running container with this name
-            docker rm my-static-site-container || true  # Remove any old container
-            docker run -d -p 80:80 --name my-static-site-container my-static-site:latest  # Run the new container
-
+            set -e
+            cd /home/ubuntu/docker-images
+            docker load -i my-static-site.tar
+            docker stop my-static-site-container || true
+            docker rm my-static-site-container || true
+            docker run -d -p 80:80 --name my-static-site-container my-static-site:latest
