@@ -21,7 +21,7 @@ jobs:
       # Step 3: Build the Docker image
       - name: Build Docker Image
         run: |
-          docker build -t my-static-site .
+          docker build -t my-static-site .  # Dockerfile should be in the root directory
 
       # Step 4: Save the Docker image to a tar file
       - name: Save Docker image as tar file
@@ -39,7 +39,7 @@ jobs:
           source: "my-static-site.tar"  # The image file to copy
           target: "/home/ubuntu/docker-images/my-static-site.tar"  # Target path on EC2 instance
 
-      # Step 6: SSH into the EC2 instance and deploy the Docker container
+      # Step 6: SSH to the EC2 instance and deploy the Docker container
       - name: SSH to EC2 and deploy
         uses: appleboy/ssh-action@v0.1.5
         with:
