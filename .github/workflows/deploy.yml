@@ -23,10 +23,11 @@ jobs:
         run: |
           docker build -t my-static-site .  # Dockerfile should be in the root directory
 
-      # Step 4: Save the Docker image to a tar file
+      # Step 4: Save the Docker image to a tar file in the appropriate directory
       - name: Save Docker image as tar file
         run: |
-          docker save my-static-site:latest -o my-static-site.tar
+          mkdir -p $GITHUB_WORKSPACE/docker-images  # Create a directory in GitHub workspace
+          docker save my-static-site:latest -o $GITHUB_WORKSPACE/docker-images/my-static-site.tar  # Save Docker image
 
       # Step 5: Copy the Docker image tar file to the EC2 instance
       - name: Copy Docker image to EC2 instance
@@ -36,10 +37,10 @@ jobs:
           username: ubuntu  # Ubuntu user for EC2 instance
           key: ${{ secrets.EC2_SSH_KEY }}  # SSH private key stored in GitHub Secrets
           port: 22  # Default SSH port
-          source: "my-static-site.tar"  # The image file to copy
+          source: "$GITHUB_WORKSPACE/docker-images/my-static-site.tar"  # The image file to copy
           target: "/home/ubuntu/docker-images/my-static-site.tar"  # Target path on EC2 instance
 
-      # Step 6: SSH to the EC2 instance and deploy the Docker container
+      # Step 6: SSH into the EC2 instance and deploy the Docker container
       - name: SSH to EC2 and deploy
         uses: appleboy/ssh-action@v0.1.5
         with:
