@@ -28,48 +28,17 @@ jobs:
         run: |
           docker run --rm my-static-site ls /usr/share/nginx/html
 
-      # Step 5: Save Docker image as tar file
+      # Step 5: Save Docker image as tar file in root
       - name: Save Docker image as tar file
         run: |
-          mkdir -p docker-images
-          docker save my-static-site:latest -o docker-images/my-static-site.tar
-          chmod +r docker-images/my-static-site.tar
-          ls -lh docker-images/
+          docker save my-static-site:latest -o my-static-site.tar
+          chmod +r my-static-site.tar
+          ls -lh my-static-site.tar
 
-      # Step 6: Check Docker image tar file exists and is readable
-      - name: Check Docker image tar file
-        run: |
-          if [ ! -r docker-images/my-static-site.tar ]; then
-            echo "Docker image tar file is missing or not readable!"
-            exit 1
-          fi
-
-      # Step 7: Upload Docker image to EC2
+      # Step 6: Upload Docker image to EC2
       - name: Upload Docker image to EC2
         uses: appleboy/scp-action@v0.1.5
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          source: "docker-images/my-static-site.tar"
-          target: "/home/ubuntu/docker-images/"
-          tar_exec: "false"  # Prevent scp-action from tarring the file
-          strip_components: 0
-          rm: false
-          debug: true
-
-      # Step 8: SSH into EC2 and deploy Docker container
-      - name: SSH into EC2 and deploy Docker container
-        uses: appleboy/ssh-action@v0.1.5
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -e
-            cd /home/ubuntu/docker-images
-            docker load -i my-static-site.tar
-            docker stop my-static-site-container || true
-            docker rm my-static-site-container || true
-            docker run -d -p 80:80 --name my-static-site-container my-static-site:latest
+          key: ${{ secrets.EC2_SSH_KEY
