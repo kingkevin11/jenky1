@@ -23,22 +23,27 @@ jobs:
         run: |
           docker build -t my-static-site .  # Build the Docker image from the Dockerfile
 
-      # Step 4: Save the Docker image to a tar file
+      # Step 4: Verify Docker image contents (Check if files are present in the image)
+      - name: Verify Docker image contents
+        run: |
+          docker run --rm my-static-site ls /usr/share/nginx/html  # Verify if static files are in the correct location
+
+      # Step 5: Save the Docker image to a tar file
       - name: Save Docker image as tar file
         run: |
           mkdir -p $GITHUB_WORKSPACE/docker-images  # Create a directory in GitHub workspace
           docker save my-static-site:latest -o $GITHUB_WORKSPACE/docker-images/my-static-site.tar  # Save Docker image
+          ls -al $GITHUB_WORKSPACE/docker-images  # Verify that the tar file is saved
 
-      # Step 5: Verify that the .tar file exists
-      - name: Verify Docker Image File
+      # Step 6: Verify that the .tar file exists
+      - name: Verify Docker Image Tar File
         run: |
-          ls -al $GITHUB_WORKSPACE/docker-images  # List files to confirm existence of .tar file
           if [ ! -f $GITHUB_WORKSPACE/docker-images/my-static-site.tar ]; then
             echo "Docker image tar file not found!"
             exit 1
           fi
 
-      # Step 6: Copy the Docker image tar file to the EC2 instance using SCP
+      # Step 7: Copy the Docker image tar file to the EC2 instance using SCP
       - name: Copy Docker image to EC2 instance
         uses: appleboy/scp-action@v0.1.5
         with:
@@ -49,7 +54,7 @@ jobs:
           source: "$GITHUB_WORKSPACE/docker-images/my-static-site.tar"  # The image file to copy
           target: "/home/ubuntu/docker-images/my-static-site.tar"  # Target path on EC2 instance
 
-      # Step 7: SSH into the EC2 instance and deploy the Docker container
+      # Step 8: SSH into the EC2 instance and deploy the Docker container
       - name: SSH to EC2 and deploy Docker container
         uses: appleboy/ssh-action@v0.1.5
         with:
