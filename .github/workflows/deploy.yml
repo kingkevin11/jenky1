@@ -41,4 +41,23 @@ jobs:
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          source: "my-static-site.tar"
+          target: "/home/ubuntu/docker-images/"
+          debug: true
+
+      # Step 7: SSH into EC2 and deploy Docker container
+      - name: SSH into EC2 and deploy Docker container
+        uses: appleboy/ssh-action@v0.1.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            cd /home/ubuntu/docker-images
+            docker load -i my-static-site.tar
+            docker stop my-static-site-container || true
+            docker rm my-static-site-container || true
+            docker run -d -p 80:80 --name my-static-site-container my-static-site:latest
